@@ -1,528 +1,530 @@
-import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, Plus, Upload, Download, RefreshCw, Edit2, Check, X, Settings } from 'lucide-react';
-
-const BettingTracker = () => {
-  const [bets, setBets] = useState([]);
-  const [initialBankroll, setInitialBankroll] = useState(1000);
-  const [showAddBet, setShowAddBet] = useState(false);
-  const [showImport, setShowImport] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [editingBet, setEditingBet] = useState(null);
-  const [checkingResults, setCheckingResults] = useState(false);
-
-  const [newBet, setNewBet] = useState({
-    date: new Date().toISOString().split('T')[0],
-    sport: 'Soccer',
-    event: '',
-    selection: '',
-    betType: 'Single',
-    odds: '',
-    stake: '',
-    stakeLevel: 5,
-    result: 'Pending',
-    strategy: 'Value Bet'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Betting Tracker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { font-family: 'Inter', sans-serif; }
+  .chart-container { position: relative; height: 200px; }
+  .modal-overlay { animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal-content { animation: slideUp 0.3s ease; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  input[type="range"] { -webkit-appearance: none; height: 6px; border-radius: 3px; background: #e5e7eb; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #000; cursor: pointer; }
+</style>
+</head>
+<body class="bg-white min-h-screen">
+<!-- Top Bar -->
+<header class="sticky top-0 z-10 border-b border-gray-200 bg-white">
+  <div class="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+    <h1 class="text-xl font-semibold text-gray-900">Betting Tracker</h1>
+    <div class="flex gap-2">
+      <button id="settingsBtn" class="p-2 hover:bg-gray-100 rounded-full transition" aria-label="Settings">
+        <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+      </button>
+      <button id="importBtn" class="p-2 hover:bg-gray-100 rounded-full transition" aria-label="Import">
+        <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+      </button>
+      <button id="exportBtn" class="p-2 hover:bg-gray-100 rounded-full transition" aria-label="Export">
+        <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+      </button>
+    </div>
+  </div>
+</header>
+<!-- Main Content -->
+<main class="max-w-2xl mx-auto px-4 pb-24">
+  <!-- Portfolio Header -->
+  <section class="pt-8 pb-6">
+    <div class="text-sm text-gray-500 mb-1">Portfolio Value</div>
+    <div id="bankrollValue" class="text-5xl font-light mb-2">€1000.00</div>
+    <div class="flex items-center gap-2">
+      <svg id="trendIcon" class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+      <span id="profitDisplay" class="text-green-500">€0.00 (0.0%)</span>
+      <span class="text-gray-400 text-sm">All time</span>
+    </div>
+  </section>
+  <!-- Bankroll Chart -->
+  <section id="chartSection" class="mb-8 bg-gray-50 rounded-2xl p-4 hidden">
+    <div class="chart-container">
+      <canvas id="bankrollChart"></canvas>
+    </div>
+  </section>
+  <!-- Stats Cards -->
+  <section class="grid grid-cols-3 gap-4 mb-8">
+    <div class="bg-gray-50 rounded-2xl p-4">
+      <div class="text-xs text-gray-500 mb-1">Win Rate</div>
+      <div id="winRate" class="text-2xl font-light">0.0%</div>
+    </div>
+    <div class="bg-gray-50 rounded-2xl p-4">
+      <div class="text-xs text-gray-500 mb-1">Total Bets</div>
+      <div id="totalBets" class="text-2xl font-light">0</div>
+    </div>
+    <div class="bg-gray-50 rounded-2xl p-4">
+      <div class="text-xs text-gray-500 mb-1">ROI</div>
+      <div id="roi" class="text-2xl font-light text-green-500">0.0%</div>
+    </div>
+  </section>
+  <!-- Performance by Sport -->
+  <section id="sportSection" class="mb-6 hidden">
+    <h2 class="text-lg font-semibold mb-4">Performance by Sport</h2>
+    <div id="sportList" class="space-y-2"></div>
+  </section>
+  <!-- Recent Activity -->
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold mb-4">Recent Activity</h2>
+    <div id="activityList" class="space-y-2">
+      <div class="text-center text-gray-500 py-8">No bets yet. Tap "Add Bet" to start.</div>
+    </div>
+  </section>
+</main>
+<!-- Bottom Add Bet Button -->
+<footer class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
+  <div class="max-w-2xl mx-auto">
+    <button id="addBetBtn" class="w-full bg-black text-white rounded-full py-4 font-medium hover:bg-gray-900 transition flex items-center justify-center gap-2">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+      Add Bet
+    </button>
+  </div>
+</footer>
+<!-- Modals -->
+<div id="addBetModal" class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center hidden modal-overlay">
+  <div class="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl max-h-[90vh] overflow-y-auto modal-content">
+    <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-3xl">
+      <h2 class="text-xl font-semibold">New Bet</h2>
+      <button id="closeAddBet" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+    </div>
+    <form id="addBetForm" class="p-6 space-y-5" novalidate>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Event / Match *</label>
+        <input type="text" id="event" required placeholder="e.g., Man United vs Brentford" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black focus:ring-1 focus:ring-black" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Selection (Optional)</label>
+        <input type="text" id="selection" placeholder="e.g., BTTS Yes" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black focus:ring-1 focus:ring-black" />
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Sport</label>
+          <select id="sport" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black focus:ring-1 focus:ring-black">
+            <option>Soccer</option><option>Basketball</option><option>Tennis</option><option>American Football</option><option>Baseball</option><option>Hockey</option><option>UFC/MMA</option><option>Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+          <select id="betType" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black focus:ring-1 focus:ring-black">
+            <option>Single</option><option>Accumulator</option><option>System</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Stake Level: <span id="stakeLevelDisplay">5</span>/10 <span class="text-gray-500 ml-2">(€<span id="recommendedStake">25.00</span> recommended)</span></label>
+        <input type="range" id="stakeLevel" min="0" max="10" value="5" class="w-full" />
+        <div class="flex justify-between text-xs text-gray-500 mt-1"><span>0% (No bet)</span><span>2.5%</span><span>5% (Max)</span></div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Odds *</label>
+          <input type="number" step="0.01" id="odds" required placeholder="2.50" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black focus:ring-1 focus:ring-black" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Stake (€) *</label>
+          <input type="number" step="0.01" id="stake" required placeholder="10.00" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black focus:ring-1 focus:ring-black" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Date</label>
+        <input type="date" id="date" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black focus:ring-1 focus:ring-black" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Result</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" class="result-btn py-3 rounded-xl font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200" data-result="Pending">Pending</button>
+          <button type="button" class="result-btn py-3 rounded-xl font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200" data-result="Won">Won</button>
+          <button type="button" class="result-btn py-3 rounded-xl font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200" data-result="Lost">Lost</button>
+        </div>
+        <input type="hidden" id="result" name="result" value="Pending" />
+      </div>
+      <button type="submit" class="w-full bg-black text-white rounded-full py-4 font-medium hover:bg-gray-900 transition">Add Bet</button>
+    </form>
+  </div>
+</div>
+<div id="settingsModal" class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center hidden modal-overlay">
+  <div class="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl modal-content">
+    <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-3xl">
+      <h2 class="text-xl font-semibold">Settings</h2>
+      <button id="closeSettings" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+    </div>
+    <div class="p-6">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Initial Bankroll (€)</label>
+        <input type="number" step="0.01" id="initialBankroll" class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black focus:ring-1 focus:ring-black" />
+        <p class="text-xs text-gray-500 mt-2">Current bankroll: €<span id="currentBankrollDisplay">1000.00</span></p>
+      </div>
+      <div class="mt-6 p-4 bg-gray-50 rounded-xl">
+        <h3 class="font-medium mb-2">Stake Level Guide</h3>
+        <div class="text-sm text-gray-600 space-y-1">
+          <div>• 0-2: Low confidence (0.5-1%)</div>
+          <div>• 3-5: Medium confidence (1.5-2.5%)</div>
+          <div>• 6-8: High confidence (3-4%)</div>
+          <div>• 9-10: Very high confidence (4.5-5%)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="importModal" class="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center hidden modal-overlay">
+  <div class="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl modal-content">
+    <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-3xl">
+      <h2 class="text-xl font-semibold">Import Data</h2>
+      <button id="closeImport" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+    </div>
+    <div class="p-6">
+      <p class="text-gray-600 mb-4">Upload your CSV export file</p>
+      <p class="text-sm text-gray-500 mb-6">Format: Date, Sport, Event, Selection, Bet Type, Odds, Stake, Stake Level, Result, Profit</p>
+      <label class="block w-full border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-gray-400 transition cursor-pointer">
+        <svg class="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+        <span class="text-gray-600">Choose CSV file</span>
+        <input type="file" id="csvFile" accept=".csv" class="hidden" />
+      </label>
+      <p id="importStatus" class="text-sm text-gray-500 mt-4 text-center hidden"></p>
+    </div>
+  </div>
+</div>
+<script>
+// ===== STATE =====
+let bets = [];
+let initialBankroll = 1000;
+let editingBetId = null;
+let bankrollChart = null;
+// ===== LOCALSTORAGE =====
+function loadData() {
+  try {
+    const storedBets = localStorage.getItem('betting-tracker-bets');
+    const storedBankroll = localStorage.getItem('betting-tracker-bankroll');
+    if (storedBets) bets = JSON.parse(storedBets);
+    if (storedBankroll) initialBankroll = parseFloat(storedBankroll);
+  } catch (e) { console.log('No saved data'); }
+}
+function saveData() {
+  localStorage.setItem('betting-tracker-bets', JSON.stringify(bets));
+  localStorage.setItem('betting-tracker-bankroll', initialBankroll.toString());
+}
+// ===== CALCULATIONS =====
+function calculateCurrentBankroll() {
+  const settled = bets.filter(b => b.result !== 'Pending');
+  const totalProfit = settled.reduce((sum, b) => sum + (b.profit || 0), 0);
+  return initialBankroll + totalProfit;
+}
+function getRecommendedStake(level) {
+  const bankroll = calculateCurrentBankroll();
+  const percentages = {0:0, 1:0.5, 2:1, 3:1.5, 4:2, 5:2.5, 6:3, 7:3.5, 8:4, 9:4.5, 10:5};
+  return (bankroll * (percentages[level] / 100)).toFixed(2);
+}
+function calculateStats() {
+  const settled = bets.filter(b => b.result !== 'Pending');
+  const won = settled.filter(b => b.result === 'Won');
+  const totalProfit = settled.reduce((sum, b) => sum + (b.profit || 0), 0);
+  const totalStaked = settled.reduce((sum, b) => sum + (b.stake || 0), 0);
+  const currentBankroll = calculateCurrentBankroll();
+  const bySport = {};
+  settled.forEach(bet => {
+    if (!bySport[bet.sport]) bySport[bet.sport] = {bets:0, profit:0, won:0};
+    bySport[bet.sport].bets++;
+    bySport[bet.sport].profit += bet.profit || 0;
+    if (bet.result === 'Won') bySport[bet.sport].won++;
   });
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    if (bets.length > 0 || initialBankroll !== 1000) {
-      saveData();
-    }
-  }, [bets, initialBankroll]);
-
-  const loadData = async () => {
-    try {
-      const betsResult = await window.storage.get('betting-tracker-bets');
-      const bankrollResult = await window.storage.get('betting-tracker-bankroll');
-      
-      if (betsResult && betsResult.value) {
-        setBets(JSON.parse(betsResult.value));
+  return {
+    totalBets: bets.length,
+    settledBets: settled.length,
+    wonBets: won.length,
+    pendingCount: bets.filter(b => b.result === 'Pending').length,
+    winRate: settled.length ? ((won.length / settled.length) * 100).toFixed(1) : 0,
+    totalProfit: totalProfit.toFixed(2),
+    totalStaked: totalStaked.toFixed(2),
+    roi: totalStaked ? ((totalProfit / totalStaked) * 100).toFixed(1) : 0,
+    currentBankroll: currentBankroll.toFixed(2),
+    bySport
+  };
+}
+function getBankrollProgression() {
+  if (bets.length === 0) return [];
+  let running = initialBankroll;
+  const prog = [{date: 'Start', value: initialBankroll}];
+  const sorted = [...bets].filter(b => b.result !== 'Pending').sort((a,b) => new Date(a.date) - new Date(b.date));
+  sorted.forEach(bet => {
+    running += bet.profit || 0;
+    prog.push({date: bet.date, value: parseFloat(running.toFixed(2))});
+  });
+  return prog;
+}
+function getSportsList() {
+  const stats = calculateStats();
+  return Object.entries(stats.bySport).map(([sport, data]) => ({
+    sport, profit: parseFloat(data.profit.toFixed(2)), bets: data.bets, winRate: ((data.won / data.bets) * 100).toFixed(1)
+  })).sort((a,b) => b.profit - a.profit);
+}
+// ===== UI RENDER =====
+function formatCurrency(val) {
+  const num = parseFloat(val);
+  return (num >= 0 ? '+' : '') + '€' + num.toFixed(2);
+}
+function render() {
+  const stats = calculateStats();
+  const current = calculateCurrentBankroll();
+  // Header values
+  document.getElementById('bankrollValue').textContent = '€' + current.toFixed(2);
+  const profit = parseFloat(stats.totalProfit);
+  document.getElementById('profitDisplay').textContent = formatCurrency(stats.totalProfit) + ' (' + stats.roi + '%)';
+  document.getElementById('profitDisplay').className = profit >= 0 ? 'text-green-500' : 'text-red-500';
+  document.getElementById('trendIcon').innerHTML = profit >= 0
+    ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>'
+    : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>';
+  document.getElementById('trendIcon').className = 'w-4 h-4 ' + (profit >= 0 ? 'text-green-500' : 'text-red-500');
+  // Stats cards
+  document.getElementById('winRate').textContent = stats.winRate + '%';
+  document.getElementById('totalBets').textContent = stats.totalBets;
+  document.getElementById('roi').textContent = stats.roi + '%';
+  document.getElementById('roi').className = 'text-2xl font-light ' + (parseFloat(stats.roi) >= 0 ? 'text-green-500' : 'text-red-500');
+  // Chart
+  const prog = getBankrollProgression();
+  const chartSection = document.getElementById('chartSection');
+  if (prog.length > 1) {
+    chartSection.classList.remove('hidden');
+    const ctx = document.getElementById('bankrollChart').getContext('2d');
+    const labels = prog.map(p => p.date === 'Start' ? 'Start' : p.date.slice(5));
+    const data = prog.map(p => p.value);
+    const minVal = Math.min(...data) - 50;
+    const maxVal = Math.max(...data) + 50;
+    if (bankrollChart) bankrollChart.destroy();
+    bankrollChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'Bankroll', data, borderColor: '#000', backgroundColor: 'rgba(0,0,0,0.05)', fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#000' }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { x: { grid: { color: '#e5e7eb' }, ticks: { color: '#9ca3af', font: { size: 12 } } }, y: { grid: { color: '#e5e7eb' }, ticks: { color: '#9ca3af', font: { size: 12 } }, suggestedMin: minVal, suggestedMax: maxVal } },
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#fff', titleColor: '#000', bodyColor: '#000', borderColor: '#e5e7eb', borderWidth: 1, padding: 12, callbacks: { label: ctx => '€' + ctx.parsed.y.toFixed(2) } } },
+        interaction: { intersect: false, mode: 'index' }
       }
-      if (bankrollResult && bankrollResult.value) {
-        setInitialBankroll(parseFloat(bankrollResult.value));
-      }
-    } catch (error) {
-      console.log('No saved data found');
-    }
-  };
-
-  const saveData = async () => {
-    try {
-      await window.storage.set('betting-tracker-bets', JSON.stringify(bets));
-      await window.storage.set('betting-tracker-bankroll', initialBankroll.toString());
-    } catch (error) {
-      console.error('Error saving data:', error);
-    }
-  };
-
-  const calculateCurrentBankroll = () => {
-    const settled = bets.filter(b => b.result !== 'Pending');
-    const totalProfit = settled.reduce((sum, b) => sum + b.profit, 0);
-    return initialBankroll + totalProfit;
-  };
-
-  const getRecommendedStake = (level) => {
-    const currentBankroll = calculateCurrentBankroll();
-    const percentages = {
-      0: 0, 1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0,
-      5: 2.5, 6: 3.0, 7: 3.5, 8: 4.0, 9: 4.5, 10: 5.0
-    };
-    return (currentBankroll * (percentages[level] / 100)).toFixed(2);
-  };
-
-  const addBet = () => {
-    if (!newBet.event || !newBet.odds || !newBet.stake) return;
-
-    const bet = {
-      ...newBet,
-      id: Date.now(),
-      odds: parseFloat(newBet.odds),
-      stake: parseFloat(newBet.stake),
-      stakeLevel: parseInt(newBet.stakeLevel),
-      profit: newBet.result === 'Won' ? parseFloat(newBet.stake) * parseFloat(newBet.odds) - parseFloat(newBet.stake) : 
-              newBet.result === 'Lost' ? -parseFloat(newBet.stake) : 0
-    };
-
-    setBets([...bets, bet]);
-    setShowAddBet(false);
-    setNewBet({
-      date: new Date().toISOString().split('T')[0],
-      sport: 'Soccer',
-      event: '',
-      selection: '',
-      betType: 'Single',
-      odds: '',
-      stake: '',
-      stakeLevel: 5,
-      result: 'Pending',
-      strategy: 'Value Bet'
     });
+  } else { chartSection.classList.add('hidden'); }
+  // Sports list
+  const sports = getSportsList();
+  const sportSection = document.getElementById('sportSection');
+  const sportList = document.getElementById('sportList');
+  if (sports.length) {
+    sportSection.classList.remove('hidden');
+    sportList.innerHTML = sports.map(item => `
+      <div class="bg-white border border-gray-200 rounded-2xl p-4">
+        <div class="flex items-center justify-between">
+          <div><div class="font-medium">${item.sport}</div><div class="text-sm text-gray-500">${item.bets} bets · ${item.winRate}% win rate</div></div>
+          <div class="font-medium ${item.profit >= 0 ? 'text-green-500' : 'text-red-500'}">${item.profit >= 0 ? '+' : ''}€${item.profit.toFixed(2)}</div>
+        </div>
+      </div>
+    `).join('');
+  } else { sportSection.classList.add('hidden'); }
+  // Activity list
+  const activityList = document.getElementById('activityList');
+  if (bets.length === 0) {
+    activityList.innerHTML = '<div class="text-center text-gray-500 py-8">No bets yet. Tap "Add Bet" to start.</div>';
+  } else {
+    activityList.innerHTML = bets.slice(-10).reverse().map(bet => {
+      const profit = bet.profit || 0;
+      const profitClass = profit > 0 ? 'text-green-500' : (profit < 0 ? 'text-red-500' : 'text-gray-500');
+      const resultClass = bet.result === 'Won' ? 'bg-green-100 text-green-700' : (bet.result === 'Lost' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700');
+      const isEditing = editingBetId === bet.id;
+      return `
+        <div class="bg-white border border-gray-200 rounded-2xl p-4" data-bet-id="${bet.id}">
+          <div class="flex justify-between items-start mb-2">
+            <div class="flex-1">
+              <div class="font-medium">${bet.event}</div>
+              ${bet.selection ? '<div class="text-sm text-gray-600 mb-1">' + bet.selection + '</div>' : ''}
+              <div class="text-sm text-gray-500">${bet.sport} · ${bet.betType}</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="text-right ${profitClass}"><div class="font-medium">${formatCurrency(profit)}</div></div>
+              <button class="edit-btn p-1.5 hover:bg-gray-100 rounded-full transition" data-bet-id="${bet.id}"><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
+            </div>
+          </div>
+          <div class="flex justify-between items-center text-sm text-gray-500">
+            <span>${bet.date}</span>
+            <div class="flex items-center gap-2">
+              <span>€${bet.stake} (${bet.stakeLevel || 5}/10) @ ${bet.odds}</span>
+              <span class="px-2 py-0.5 rounded-full text-xs ${resultClass}">${bet.result}</span>
+            </div>
+          </div>
+          ${isEditing ? `
+            <div class="mt-3 pt-3 border-t border-gray-200">
+              <div class="text-sm text-gray-600 mb-2">Update result:</div>
+              <div class="flex gap-2">
+                <button class="result-update-btn flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl transition flex items-center justify-center gap-1" data-bet-id="${bet.id}" data-result="Won"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Won</button>
+                <button class="result-update-btn flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-xl transition flex items-center justify-center gap-1" data-bet-id="${bet.id}" data-result="Lost"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Lost</button>
+                <button class="result-update-btn flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-xl transition" data-bet-id="${bet.id}" data-result="Pending">Pending</button>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+  // Update recommended stake display
+  document.getElementById('stakeLevelDisplay').textContent = document.getElementById('stakeLevel').value;
+  document.getElementById('recommendedStake').textContent = getRecommendedStake(document.getElementById('stakeLevel').value);
+  document.getElementById('initialBankroll').value = initialBankroll;
+  document.getElementById('currentBankrollDisplay').textContent = current.toFixed(2);
+  document.getElementById('date').value = new Date().toISOString().split('T')[0];
+}
+// ===== MODAL HANDLERS =====
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); editingBetId = null; render(); }
+document.getElementById('addBetBtn').onclick = () => openModal('addBetModal');
+document.getElementById('closeAddBet').onclick = () => closeModal('addBetModal');
+document.getElementById('settingsBtn').onclick = () => openModal('settingsModal');
+document.getElementById('closeSettings').onclick = () => closeModal('settingsModal');
+document.getElementById('importBtn').onclick = () => openModal('importModal');
+document.getElementById('closeImport').onclick = () => closeModal('importModal');
+// Close modal on overlay click
+['addBetModal','settingsModal','importModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => { if (e.target.id === id) closeModal(id); });
+});
+// ===== STAKE LEVEL SLIDER =====
+document.getElementById('stakeLevel').addEventListener('input', e => {
+  const level = parseInt(e.target.value);
+  document.getElementById('stakeLevelDisplay').textContent = level;
+  document.getElementById('recommendedStake').textContent = getRecommendedStake(level);
+  document.getElementById('stake').value = getRecommendedStake(level);
+});
+// ===== RESULT BUTTONS (Add Bet Form) =====
+document.querySelectorAll('.result-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.result-btn').forEach(b => b.className = 'result-btn py-3 rounded-xl font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200');
+    btn.className = 'result-btn py-3 rounded-xl font-medium transition bg-black text-white';
+    document.getElementById('result').value = btn.dataset.result;
   };
-
-  const updateBetResult = (betId, newResult) => {
-    setBets(bets.map(bet => {
+});
+// ===== EDIT BET =====
+document.addEventListener('click', e => {
+  const editBtn = e.target.closest('.edit-btn');
+  if (editBtn) {
+    editingBetId = editBtn.dataset.betId;
+    render();
+  }
+});
+// ===== UPDATE RESULT =====
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.result-update-btn');
+  if (btn) {
+    const betId = parseInt(btn.dataset.betId);
+    const newResult = btn.dataset.result;
+    bets = bets.map(bet => {
       if (bet.id === betId) {
         const profit = newResult === 'Won' ? bet.stake * bet.odds - bet.stake :
                        newResult === 'Lost' ? -bet.stake : 0;
-        return { ...bet, result: newResult, profit };
+        return {...bet, result: newResult, profit};
       }
       return bet;
-    }));
-    setEditingBet(null);
-  };
-
-  const exportData = () => {
-    const csv = [
-      ['Date', 'Sport', 'Event', 'Selection', 'Bet Type', 'Odds', 'Stake', 'Stake Level', 'Result', 'Profit'],
-      ...bets.map(b => [b.date, b.sport, b.event, b.selection || '', b.betType, b.odds, b.stake, b.stakeLevel || 5, b.result, b.profit])
-    ].map(row => row.join(',')).join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'bets-export-' + new Date().toISOString().split('T')[0] + '.csv';
-    a.click();
-  };
-
-  const calculateStats = () => {
-    const settled = bets.filter(b => b.result !== 'Pending');
-    const won = settled.filter(b => b.result === 'Won');
-    const totalProfit = settled.reduce((sum, b) => sum + b.profit, 0);
-    const totalStaked = settled.reduce((sum, b) => sum + b.stake, 0);
-    const currentBankroll = initialBankroll + totalProfit;
-
-    const bySport = {};
-    
-    settled.forEach(bet => {
-      if (!bySport[bet.sport]) bySport[bet.sport] = { bets: 0, profit: 0, won: 0 };
-      bySport[bet.sport].bets++;
-      bySport[bet.sport].profit += bet.profit;
-      if (bet.result === 'Won') bySport[bet.sport].won++;
     });
-
-    const pendingCount = bets.filter(b => b.result === 'Pending').length;
-
-    return {
-      totalBets: bets.length,
-      settledBets: settled.length,
-      wonBets: won.length,
-      pendingCount,
-      winRate: settled.length > 0 ? ((won.length / settled.length) * 100).toFixed(1) : 0,
-      totalProfit: totalProfit.toFixed(2),
-      totalStaked: totalStaked.toFixed(2),
-      roi: totalStaked > 0 ? ((totalProfit / totalStaked) * 100).toFixed(1) : 0,
-      currentBankroll: currentBankroll.toFixed(2),
-      bySport
-    };
+    editingBetId = null;
+    saveData();
+    render();
+  }
+});
+// ===== ADD BET FORM SUBMIT =====
+document.getElementById('addBetForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const form = e.target;
+  if (!form.event.value || !form.odds.value || !form.stake.value) return alert('Please fill Event, Odds, and Stake');
+  const bet = {
+    id: Date.now(),
+    date: form.date.value || new Date().toISOString().split('T')[0],
+    sport: form.sport.value,
+    event: form.event.value,
+    selection: form.selection.value,
+    betType: form.betType.value,
+    odds: parseFloat(form.odds.value),
+    stake: parseFloat(form.stake.value),
+    stakeLevel: parseInt(form.stakeLevel.value),
+    result: form.result.value,
+    profit: form.result.value === 'Won' ? parseFloat(form.stake.value) * parseFloat(form.odds.value) - parseFloat(form.stake.value) :
+            form.result.value === 'Lost' ? -parseFloat(form.stake.value) : 0
   };
-
-  const stats = calculateStats();
-
-  const getBankrollProgression = () => {
-    if (bets.length === 0) return [];
-    
-    let running = initialBankroll;
-    const progression = [{ date: 'Start', value: initialBankroll }];
-    
-    const sortedBets = [...bets]
-      .filter(b => b.result !== 'Pending')
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    sortedBets.forEach(bet => {
-      running += bet.profit;
-      progression.push({
-        date: bet.date,
-        value: parseFloat(running.toFixed(2))
-      });
-    });
-
-    return progression;
-  };
-
-  const getSportsList = () => {
-    return Object.entries(stats.bySport)
-      .map(([sport, data]) => ({
-        sport,
-        profit: parseFloat(data.profit.toFixed(2)),
-        bets: data.bets,
-        winRate: ((data.won / data.bets) * 100).toFixed(1)
-      }))
-      .sort((a, b) => b.profit - a.profit);
-  };
-
-  return (
-    <div className="min-h-screen bg-white">
-      <div className="border-b border-gray-200 bg-white sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-gray-900">Betting Tracker</h1>
-            <div className="flex gap-2">
-              <button onClick={() => setShowSettings(true)} className="p-2 hover:bg-gray-100 rounded-full transition">
-                <Settings className="w-5 h-5 text-gray-700" />
-              </button>
-              <button onClick={() => setShowImport(true)} className="p-2 hover:bg-gray-100 rounded-full transition">
-                <Upload className="w-5 h-5 text-gray-700" />
-              </button>
-              <button onClick={exportData} className="p-2 hover:bg-gray-100 rounded-full transition">
-                <Download className="w-5 h-5 text-gray-700" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-2xl mx-auto px-4 pb-24">
-        <div className="pt-8 pb-6">
-          <div className="text-sm text-gray-500 mb-1">Portfolio Value</div>
-          <div className="text-5xl font-light mb-2">€{stats.currentBankroll}</div>
-          <div className="flex items-center gap-2">
-            {parseFloat(stats.totalProfit) >= 0 ? (
-              <TrendingUp className="w-4 h-4 text-green-500" />
-            ) : (
-              <TrendingDown className="w-4 h-4 text-red-500" />
-            )}
-            <span className={parseFloat(stats.totalProfit) >= 0 ? 'text-green-500' : 'text-red-500'}>
-              €{stats.totalProfit} ({stats.roi}%)
-            </span>
-            <span className="text-gray-400 text-sm">All time</span>
-          </div>
-        </div>
-
-        {getBankrollProgression().length > 1 && (
-          <div className="mb-8 bg-gray-50 rounded-2xl p-4">
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={getBankrollProgression()}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="#9ca3af" 
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => value === 'Start' ? value : value.slice(5)}
-                />
-                <YAxis 
-                  stroke="#9ca3af" 
-                  tick={{ fontSize: 12 }}
-                  domain={['dataMin - 50', 'dataMax + 50']}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#ffffff', 
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px'
-                  }}
-                  formatter={(value) => ['€' + value, 'Bankroll']}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#000000" 
-                  strokeWidth={2} 
-                  dot={{ fill: '#000000', r: 3 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <div className="bg-gray-50 rounded-2xl p-4">
-            <div className="text-xs text-gray-500 mb-1">Win Rate</div>
-            <div className="text-2xl font-light">{stats.winRate}%</div>
-          </div>
-          <div className="bg-gray-50 rounded-2xl p-4">
-            <div className="text-xs text-gray-500 mb-1">Total Bets</div>
-            <div className="text-2xl font-light">{stats.totalBets}</div>
-          </div>
-          <div className="bg-gray-50 rounded-2xl p-4">
-            <div className="text-xs text-gray-500 mb-1">ROI</div>
-            <div className={'text-2xl font-light ' + (parseFloat(stats.roi) >= 0 ? 'text-green-500' : 'text-red-500')}>
-              {stats.roi}%
-            </div>
-          </div>
-        </div>
-
-        {getSportsList().length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-4">Performance by Sport</h2>
-            <div className="space-y-2">
-              {getSportsList().map((item, idx) => (
-                <div key={idx} className="bg-white border border-gray-200 rounded-2xl p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{item.sport}</div>
-                      <div className="text-sm text-gray-500">{item.bets} bets · {item.winRate}% win rate</div>
-                    </div>
-                    <div className={'font-medium ' + (item.profit >= 0 ? 'text-green-500' : 'text-red-500')}>
-                      {item.profit >= 0 ? '+' : ''}€{item.profit.toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
-          <div className="space-y-2">
-            {bets.slice(-10).reverse().map(bet => (
-              <div key={bet.id} className="bg-white border border-gray-200 rounded-2xl p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex-1">
-                    <div className="font-medium">{bet.event}</div>
-                    {bet.selection && (
-                      <div className="text-sm text-gray-600 mb-1">{bet.selection}</div>
-                    )}
-                    <div className="text-sm text-gray-500">{bet.sport} · {bet.betType}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className={'text-right ' + (bet.result === 'Won' ? 'text-green-500' : bet.result === 'Lost' ? 'text-red-500' : 'text-gray-500')}>
-                      <div className="font-medium">
-                        {bet.profit > 0 ? '+' : ''}€{bet.profit.toFixed(2)}
-                      </div>
-                    </div>
-                    <button onClick={() => setEditingBet(bet.id)} className="p-1.5 hover:bg-gray-100 rounded-full transition">
-                      <Edit2 className="w-4 h-4 text-gray-400" />
-                    </button>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center text-sm text-gray-500">
-                  <span>{bet.date}</span>
-                  <div className="flex items-center gap-2">
-                    <span>€{bet.stake} ({bet.stakeLevel || 5}/10) @ {bet.odds}</span>
-                    <span className={'px-2 py-0.5 rounded-full text-xs ' + (bet.result === 'Pending' ? 'bg-orange-100 text-orange-700' : bet.result === 'Won' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')}>
-                      {bet.result}
-                    </span>
-                  </div>
-                </div>
-
-                {editingBet === bet.id && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <div className="text-sm text-gray-600 mb-2">Update result:</div>
-                    <div className="flex gap-2">
-                      <button onClick={() => updateBetResult(bet.id, 'Won')} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl transition flex items-center justify-center gap-1">
-                        <Check className="w-4 h-4" />
-                        Won
-                      </button>
-                      <button onClick={() => updateBetResult(bet.id, 'Lost')} className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-xl transition flex items-center justify-center gap-1">
-                        <X className="w-4 h-4" />
-                        Lost
-                      </button>
-                      <button onClick={() => updateBetResult(bet.id, 'Pending')} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-xl transition">
-                        Pending
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
-        <div className="max-w-2xl mx-auto">
-          <button onClick={() => setShowAddBet(true)} className="w-full bg-black text-white rounded-full py-4 font-medium hover:bg-gray-900 transition flex items-center justify-center gap-2">
-            <Plus className="w-5 h-5" />
-            Add Bet
-          </button>
-        </div>
-      </div>
-
-      {showAddBet && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
-          <div className="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-3xl">
-              <h2 className="text-xl font-semibold">New Bet</h2>
-              <button onClick={() => setShowAddBet(false)} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
-            </div>
-
-            <div className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Event / Match</label>
-                <input type="text" value={newBet.event} onChange={(e) => setNewBet({...newBet, event: e.target.value})} placeholder="e.g., Sinner vs Rune" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Selection (Optional)</label>
-                <input type="text" value={newBet.selection} onChange={(e) => setNewBet({...newBet, selection: e.target.value})} placeholder="e.g., Sinner win 3-1" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Sport</label>
-                  <select value={newBet.sport} onChange={(e) => setNewBet({...newBet, sport: e.target.value})} className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black">
-                    <option>Soccer</option>
-                    <option>Basketball</option>
-                    <option>Tennis</option>
-                    <option>American Football</option>
-                    <option>Baseball</option>
-                    <option>Hockey</option>
-                    <option>UFC/MMA</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                  <select value={newBet.betType} onChange={(e) => setNewBet({...newBet, betType: e.target.value})} className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black">
-                    <option>Single</option>
-                    <option>Accumulator</option>
-                    <option>System</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stake Level: {newBet.stakeLevel}/10 
-                  <span className="text-gray-500 ml-2">(€{getRecommendedStake(newBet.stakeLevel)} recommended)</span>
-                </label>
-                <input type="range" min="0" max="10" value={newBet.stakeLevel} onChange={(e) => {
-                    const level = parseInt(e.target.value);
-                    setNewBet({...newBet, stakeLevel: level, stake: getRecommendedStake(level)});
-                  }} className="w-full" />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>0% (No bet)</span>
-                  <span>2.5%</span>
-                  <span>5% (Max)</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Odds</label>
-                  <input type="number" step="0.01" value={newBet.odds} onChange={(e) => setNewBet({...newBet, odds: e.target.value})} placeholder="2.50" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black" />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Stake (€)</label>
-                  <input type="number" step="0.01" value={newBet.stake} onChange={(e) => setNewBet({...newBet, stake: e.target.value})} placeholder="10.00" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                <input type="date" value={newBet.date} onChange={(e) => setNewBet({...newBet, date: e.target.value})} className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Result</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['Pending', 'Won', 'Lost'].map(status => (
-                    <button key={status} onClick={() => setNewBet({...newBet, result: status})} className={'py-3 rounded-xl font-medium transition ' + (newBet.result === status ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')}>
-                      {status}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button onClick={addBet} className="w-full bg-black text-white rounded-full py-4 font-medium hover:bg-gray-900 transition">
-                Add Bet
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
-          <div className="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-3xl">
-              <h2 className="text-xl font-semibold">Settings</h2>
-              <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
-            </div>
-
-            <div className="p-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Initial Bankroll (€)</label>
-                <input type="number" step="0.01" value={initialBankroll} onChange={(e) => setInitialBankroll(parseFloat(e.target.value) || 0)} className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:border-black" />
-                <p className="text-xs text-gray-500 mt-2">Current bankroll: €{stats.currentBankroll}</p>
-              </div>
-
-              <div className="mt-6 p-4 bg-gray-50 rounded-xl">
-                <h3 className="font-medium mb-2">Stake Level Guide</h3>
-                <div className="text-sm text-gray-600 space-y-1">
-                  <div>• 0-2: Low confidence (0.5-1%)</div>
-                  <div>• 3-5: Medium confidence (1.5-2.5%)</div>
-                  <div>• 6-8: High confidence (3-4%)</div>
-                  <div>• 9-10: Very high confidence (4.5-5%)</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showImport && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
-          <div className="bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-3xl">
-              <h2 className="text-xl font-semibold">Import Data</h2>
-              <button onClick={() => setShowImport(false)} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
-            </div>
-
-            <div className="p-6">
-              <p className="text-gray-600 mb-4">Upload your Winamax CSV export file</p>
-              <p className="text-sm text-gray-500 mb-6">Format: Date, Sport, Event, Type, Odds, Stake, Result</p>
-
-              <label className="block w-full border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-gray-400 transition cursor-pointer">
-                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <span className="text-gray-600">Choose CSV file</span>
-                <input type="file" accept=".csv" className="hidden" />
-              </label>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  bets.push(bet);
+  saveData();
+  form.reset();
+  form.result.value = 'Pending';
+  document.querySelectorAll('.result-btn').forEach((b,i) => b.className = 'result-btn py-3 rounded-xl font-medium transition ' + (i===0 ? 'bg-black text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'));
+  document.getElementById('stakeLevel').value = 5;
+  document.getElementById('stakeLevelDisplay').textContent = 5;
+  document.getElementById('recommendedStake').textContent = getRecommendedStake(5);
+  document.getElementById('stake').value = getRecommendedStake(5);
+  document.getElementById('date').value = new Date().toISOString().split('T')[0];
+  closeModal('addBetModal');
+  render();
+});
+// ===== SETTINGS FORM =====
+document.getElementById('initialBankroll').addEventListener('change', e => {
+  initialBankroll = parseFloat(e.target.value) || 0;
+  saveData();
+  render();
+});
+// ===== EXPORT =====
+document.getElementById('exportBtn').onclick = () => {
+  if (bets.length === 0) return alert('No bets to export');
+  const csv = [['Date','Sport','Event','Selection','Bet Type','Odds','Stake','Stake Level','Result','Profit'],
+    ...bets.map(b => [b.date,b.sport,b.event,b.selection||'',b.betType,b.odds,b.stake,b.stakeLevel||5,b.result,b.profit||0])]
+    .map(row => row.join(',')).join('\n');
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'bets-export-' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click(); URL.revokeObjectURL(url);
 };
-
-export default BettingTracker;
-“Initial commit – betting tracker”
+// ===== IMPORT CSV =====
+document.getElementById('csvFile').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const text = evt.target.result;
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) throw new Error('CSV empty');
+      const headers = lines[0].split(',').map(h => h.trim());
+      const imported = lines.slice(1).map(line => {
+        const vals = line.split(',').map(v => v.trim());
+        const obj = {};
+        headers.forEach((h,i) => obj[h] = vals[i]);
+        return {
+          id: Date.now() + Math.random(),
+          date: obj.Date || new Date().toISOString().split('T')[0],
+          sport: obj.Sport || 'Soccer',
+          event: obj.Event || '',
+          selection: obj.Selection || '',
+          betType: obj['Bet Type'] || 'Single',
+          odds: parseFloat(obj.Odds) || 0,
+          stake: parseFloat(obj.Stake) || 0,
+          stakeLevel: parseInt(obj['Stake Level']) || 5,
+          result: obj.Result || 'Pending',
+          profit: parseFloat(obj.Profit) || 0
+        };
+      });
+      bets.push(...imported);
+      saveData();
+      render();
+      document.getElementById('importStatus').textContent = `Imported ${imported.length} bets ✓`;
+      document.getElementById('importStatus').classList.remove('hidden');
+      setTimeout(() => { document.getElementById('importStatus').classList.add('hidden'); closeModal('importModal'); }, 1500);
+    } catch (err) { alert('Import failed: ' + err.message); }
+  };
+  reader.readAsText(file);
+});
+// ===== INIT =====
+loadData();
+render();
+</script>
+</body>
+</html>
